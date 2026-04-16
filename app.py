@@ -4,7 +4,7 @@ import streamlit as st
 
 # --- Page Config ---
 st.set_page_config(
-    page_title="Movie Recommender",
+    page_title="Genre Based Recommendation System",
     page_icon="🎬",
     layout="wide"
 )
@@ -61,15 +61,24 @@ def load_data_and_build_model():
 
 movies, ratings, similarity_df, original_user_ids = load_data_and_build_model()
 
+# --- Extract Unique Genres ---
+all_genres = set()
+for g in movies['genres']:
+    for genre in g.split('|'):
+        all_genres.add(genre)
+
+all_genres = sorted(list(all_genres))
+
 # --- Recommendation Function ---
-def get_recommendations(custom_user_id, genre=None, num_recommendations=5):
+def get_recommendations(custom_user_id, selected_genres=None, num_recommendations=5):
     try:
         original_user_id = original_user_ids[custom_user_id - 1]
     except IndexError:
         return pd.DataFrame()
 
-    if genre:
-        filtered_movies = movies[movies['genres'].str.contains(genre, case=False, na=False)]
+    if selected_genres:
+        pattern = '|'.join(selected_genres)
+        filtered_movies = movies[movies['genres'].str.contains(pattern, case=False, na=False)]
     else:
         filtered_movies = movies
 
@@ -93,7 +102,7 @@ def get_recommendations(custom_user_id, genre=None, num_recommendations=5):
 
 
 # --- Header ---
-st.markdown('<div class="title">🎬 Movie Recommendation System</div>', unsafe_allow_html=True)
+st.markdown('<div class="title">🎬 Genre Based Recommendation System</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Find movies based on users with similar taste</div>', unsafe_allow_html=True)
 
 # --- Sidebar ---
@@ -106,8 +115,10 @@ custom_user_id = st.sidebar.number_input(
     value=1
 )
 
-genre_input = st.sidebar.text_input("Genre (optional)")
-genre = genre_input.strip() if genre_input.strip() else None
+selected_genres = st.sidebar.multiselect(
+    "Select Genres (optional)",
+    all_genres
+)
 
 num_recommendations = st.sidebar.slider("Number of recommendations", 3, 15, 5)
 
@@ -116,12 +127,15 @@ if st.sidebar.button("🎯 Get Recommendations"):
     with st.spinner("Finding the best movies for you..."):
         recommended_movies = get_recommendations(
             custom_user_id,
-            genre,
+            selected_genres,
             num_recommendations
         )
 
         if not recommended_movies.empty:
             st.success("✅ Recommendations ready!")
+
+            if selected_genres:
+                st.info(f"Filtering by: {', '.join(selected_genres)}")
 
             cols = st.columns(2)
 
